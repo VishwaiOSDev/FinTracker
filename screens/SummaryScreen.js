@@ -16,7 +16,7 @@ const SummaryScreen = ({ route }) => {
 
     const lowestExpenseTransaction = transactions.find(
         (t) => t.amount === lowestExpense
-    );
+    );r
     return (
         <View style={styles.container}>
             <View style={styles.stats}>
