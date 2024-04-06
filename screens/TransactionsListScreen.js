@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, FlatList, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Button } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, FlatList, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Button, Alert } from 'react-native';
+import { collection, addDoc, getDocs } from "firebase/firestore";
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import db from '../config';
 
 const TransactionsListScreen = ({ navigation, route }) => {
-  const { transactions } = route.params;
-
+  const [transactions, setTransactions] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTransaction, setNewTransaction] = useState({
     name: '',
@@ -13,31 +14,56 @@ const TransactionsListScreen = ({ navigation, route }) => {
     location: ''
   });
 
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'transactions'));
+        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setTransactions(data);
+      } catch (error) {
+        console.error('Error fetching transactions: ', error);
+      }
+    };
+
+    fetchTransactions();
+  }, []);
+
   const renderItem = ({ item }) => (
     <TouchableOpacity onPress={() => navigation.navigate('Transaction Detail', item)}>
       <View style={styles.transactionItem}>
         <Text style={styles.transactionTitle}>{item.name}</Text>
         <View style={styles.costContainer}>
-          <Text style={styles.transactionCost}>{item.amount.toFixed(2)}</Text>
+          <Text style={styles.transactionCost}>{parseInt(item.amount).toFixed(2)}</Text>
           <Icon name="chevron-right" size={24} color="#808080" />
         </View>
       </View>
     </TouchableOpacity>
   );
 
-  const handleSubmit = () => {
-    // Handle submission of new transaction
-    console.log("New Transaction:", newTransaction);
-    // Reset the form fields
-    setNewTransaction({
-      name: '',
-      amount: '',
-      date: '',
-      location: ''
-    });
-    // Close the modal
-    setModalVisible(false);
-  };
+  const handleSubmit = async () => {
+    try {
+      if (!newTransaction.name || !newTransaction.amount || !newTransaction.date || !newTransaction.location) {
+        Alert.alert('Error', 'Please fill in all fields');
+        return; 
+      }
+  
+      await addDoc(collection(db, 'transactions'), newTransaction);
+      setNewTransaction({
+        name: '',
+        amount: '',
+        date: '',
+        location: ''
+      });
+
+      setModalVisible(false);
+      
+      const querySnapshot = await getDocs(collection(db, 'transactions'));
+      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setTransactions(data);
+    } catch (error) {
+      console.error('Error adding transaction: ', error);
+    }
+  };  
 
   return (
     <View style={{ flex: 1 }}>
@@ -45,6 +71,7 @@ const TransactionsListScreen = ({ navigation, route }) => {
         data={transactions}
         renderItem={renderItem}
         keyExtractor={(item) => item.id.toString()}
+        keyboardShouldPersistTaps="handled"
       />
       <TouchableOpacity
         onPress={() => setModalVisible(true)}
@@ -91,7 +118,6 @@ const TransactionsListScreen = ({ navigation, route }) => {
         </View>
         </View>
       </Modal>
-
     </View>
   );
 };

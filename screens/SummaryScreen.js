@@ -1,39 +1,63 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { useFocusEffect } from '@react-navigation/native'; 
+import db from '../config'; 
 
-const SummaryScreen = ({ route }) => {
+const SummaryScreen = () => {
+    const [transactions, setTransactions] = useState([]);
+    const [loading, setLoading] = useState(true);
+
     
-    const { transactions } = route.params;
+    useFocusEffect(
+        React.useCallback(() => {
+            const unsubscribe = onSnapshot(collection(db, 'transactions'), (snapshot) => {
+                const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+                setTransactions(data);
+                setLoading(false);
+            });
+
+            return () => unsubscribe();
+        }, [])
+    );
+
+    if (loading) {
+        return <ActivityIndicator />;
+    }
+
+    transactions.forEach(transaction => {
+        transaction.amount = parseInt(transaction.amount);
+    });
+
     const totalTransactions = transactions.length;
-
     const totalExpense = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
-
     const highestExpense = Math.max(...transactions.map((t) => t.amount));
     const lowestExpense = Math.min(...transactions.map((t) => t.amount));
-    const highestExpenseTransaction = transactions.find(
-        (t) => t.amount === highestExpense
-    );
 
-    const lowestExpenseTransaction = transactions.find(
-        (t) => t.amount === lowestExpense
-    );
-    
+    const highestExpenseTransaction = transactions.find((t) => t.amount === highestExpense);
+
+    const lowestExpenseTransaction = transactions.find((t) => t.amount === lowestExpense);
+
     return (
         <View style={styles.container}>
             <View style={styles.stats}>
                 <Text style={styles.statText}>Total Transactions: {totalTransactions}</Text>
-                <Text style={styles.statText}>Balance: ${totalExpense.toFixed(2)}</Text>
+                <Text style={styles.statText}>Balance: ${parseFloat(totalExpense).toFixed(2)}</Text>
             </View>
             <Text style={styles.sectionHeader}>High Spending</Text>
-            <View style={styles.transaction}>
-                <Text style={styles.transactionText}>{highestExpenseTransaction.name}</Text>
-                <Text style={styles.transactionAmount}>${highestExpense.toFixed(2)}</Text>
-            </View>
+            {highestExpenseTransaction && (
+                <View style={styles.transaction}>
+                    <Text style={styles.transactionText}>{highestExpenseTransaction.name}</Text>
+                    <Text style={styles.transactionAmount}>${parseFloat(highestExpense).toFixed(2)}</Text>
+                </View>
+            )}
             <Text style={styles.sectionHeader}>Low Spending</Text>
-            <View style={styles.transaction}>
-                <Text style={styles.transactionText}>{lowestExpenseTransaction.name}</Text>
-                <Text style={styles.transactionAmount}>${lowestExpense.toFixed(2)}</Text>
-            </View>
+            {lowestExpenseTransaction && (
+                <View style={styles.transaction}>
+                    <Text style={styles.transactionText}>{lowestExpenseTransaction.name}</Text>
+                    <Text style={styles.transactionAmount}>${parseFloat(lowestExpense).toFixed(2)}</Text>
+                </View>
+            )}
         </View>
     );
 };
